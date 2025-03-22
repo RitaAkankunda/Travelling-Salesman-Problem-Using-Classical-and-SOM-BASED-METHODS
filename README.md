@@ -14,7 +14,7 @@
 
 ### Graph Representation
 
-![Original Graph](graph.png)
+![Original Graph](graph.PNG)
 
 A good way to store the graph is by using a dictionary (hash table). Each city (key) maps to a list of tuples, where each tuple represents a connection to another city and the travel distance.
 
