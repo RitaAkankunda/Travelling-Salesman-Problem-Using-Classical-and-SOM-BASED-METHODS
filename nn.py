@@ -44,7 +44,7 @@ graph = {
 complete_path, total_distance = tsp_dfs(graph, 1)
 
 # Format the route as specified.
-# (The complete_path includes the return to the start. We omit that for printing the "route".)
+
 if complete_path:
     route = " > ".join(map(str, complete_path))
     print("Route:", route)
