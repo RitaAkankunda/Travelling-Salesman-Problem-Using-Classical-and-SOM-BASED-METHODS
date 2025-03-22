@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
 
 # -----------------------------
 # (1) Define the graph distances
@@ -93,24 +92,6 @@ def compute_total_distance(route, graph):
 
 total_distance = compute_total_distance(final_route, graph)
 
-# -----------------------------
-# (8) Plot and Display Results
-# -----------------------------
-plt.figure(figsize=(6, 6))
-
-for city_id, coord in cities.items():
-    plt.scatter(coord[0], coord[1], color='red', zorder=5)
-    plt.text(coord[0] + 0.5, coord[1] + 0.5, str(city_id), fontsize=12, zorder=5)
-
-plt.plot(neurons[:, 0], neurons[:, 1], 'b--', alpha=0.5, label='Neuron path')
-
-route_coords = np.array([cities[city_id] for city_id in final_route] + [cities[final_route[0]]])
-plt.plot(route_coords[:, 0], route_coords[:, 1], 'g-', linewidth=2, label='Final TSP route')
-plt.legend()
-plt.title("SOM-TSP Final Route")
-plt.xlabel("X")
-plt.ylabel("Y")
-plt.show()
 
 print("Final Route:", " > ".join(map(str, final_route + [final_route[0]])))
 print("Total Distance:", total_distance)
