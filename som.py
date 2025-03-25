@@ -1,97 +1,93 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
-# -----------------------------
-# (1) Define the graph distances
-# -----------------------------
-graph = {
-    1: {2: 12, 3: 10, 7: 12},
-    2: {1: 12, 3: 8, 4: 12},
-    3: {1: 10, 2: 8, 4: 11, 5: 3, 7: 9},
-    4: {2: 12, 3: 11, 5: 11, 6: 10},
-    5: {3: 3, 4: 11, 6: 6, 7: 7},
-    6: {4: 10, 5: 6, 7: 9},
-    7: {1: 12, 3: 9, 5: 7, 6: 9}
-}
+# Adjusted city positions based on the image structure
+city_positions = np.array([
+    [0, 3],    # City 1 (Start)
+    [2, 4],    # City 2
+    [1.5, 2.8], # City 3
+    [3, 3.5],  # City 4
+    [2.5, 2],  # City 5
+    [3.5, 1],  # City 6
+    [0.5, 1.5] # City 7
+])
 
-# -----------------------------
-# (2) Define city coordinates
-# -----------------------------
-cities = {
-    1: np.array([0.0, 0.0]),
-    3: np.array([10.0, 0.0]),
-    5: np.array([10.0, 3.0]),
-    7: np.array([10.0, 10.0]),
-    6: np.array([19.0, 10.0]),
-    4: np.array([19.0, 0.0]),
-    2: np.array([31.0, 0.0])
-}
+# Adjacency matrix from the provided image
+city_distances = np.array([
+    [0, 12, 10, 0, 0, 0, 12],
+    [12, 0, 8, 12, 0, 0, 0],
+    [10, 8, 0, 11, 3, 0, 9],
+    [0, 12, 11, 0, 11, 10, 0],
+    [0, 0, 3, 11, 0, 6, 7],
+    [0, 0, 0, 10, 6, 0, 9],
+    [12, 0, 9, 0, 7, 9, 0]
+])
 
-# -----------------------------
-# (3) Initialize the SOM (neurons in a ring)
-# -----------------------------
-num_neurons = 20
-angles = np.linspace(0, 2 * np.pi, num_neurons, endpoint=False)
-radius = 15
-neurons = np.array([[radius * np.cos(a), radius * np.sin(a)] for a in angles])
+num_cities = city_positions.shape[0]
+num_neurons = num_cities * 5  # More neurons for better accuracy
 
-# -----------------------------
-# (4) SOM Training Parameters
-# -----------------------------
-num_iterations = 1000
-initial_learning_rate = 0.8
-initial_radius = num_neurons / 2
+# Initialize neurons randomly around city positions
+neurons = np.random.rand(num_neurons, 2) * 5  
 
-def decay_learning_rate(iteration):
-    return initial_learning_rate * np.exp(-iteration / num_iterations)
+# Training parameters (fine-tuned for better convergence)
+num_iterations = 5000  # More iterations for better learning
+learning_rate = 0.6    # Adjusted learning rate
+initial_radius = num_neurons // 3
 
-def decay_radius(iteration):
-    return initial_radius * np.exp(-iteration / num_iterations)
-
-# -----------------------------
-# (5) SOM Training Loop
-# -----------------------------
-city_ids = list(cities.keys())
-
-for iteration in range(num_iterations):
-    city_id = np.random.choice(city_ids)
-    city = cities[city_id]
+# Training the SOM
+for i in range(num_iterations):
+    city = city_positions[np.random.randint(0, num_cities)]
 
     distances = np.linalg.norm(neurons - city, axis=1)
-    winner_idx = np.argmin(distances)
+    winner_index = np.argmin(distances)
 
-    lr = decay_learning_rate(iteration)
-    radius_decay = decay_radius(iteration)
+    radius = initial_radius * np.exp(-i / (num_iterations / np.log(initial_radius + 1)))
+    influence = np.exp(-distances**2 / (2 * (max(radius, 1e-6) ** 2)))
 
-    for i in range(num_neurons):
-        distance_on_ring = min(abs(i - winner_idx), num_neurons - abs(i - winner_idx))
-        if distance_on_ring <= radius_decay:
-            influence = np.exp(-(distance_on_ring ** 2) / (2 * (radius_decay ** 2)))
-            neurons[i] += lr * influence * (city - neurons[i])
+    neurons += learning_rate * influence[:, np.newaxis] * (city - neurons)
 
-# -----------------------------
-# (6) Extract the Route
-# -----------------------------
-city_positions = [(np.argmin(np.linalg.norm(neurons - cities[c], axis=1)), c) for c in cities]
-city_positions.sort()
-final_route = [c for _, c in city_positions]
+# Match each city to its nearest neuron
+ordered_indices = []
+for city in city_positions:
+    nearest_neuron = np.argmin(np.linalg.norm(neurons - city, axis=1))
+    ordered_indices.append((nearest_neuron, city))
 
-# Ensure route starts at city 1
-while final_route[0] != 1:
-    final_route = final_route[1:] + final_route[:1]
+# Ensure order and cyclic path
+ordered_indices = sorted(ordered_indices, key=lambda x: x[0])
+ordered_cities = np.array([city for _, city in ordered_indices])
+ordered_city_indices = [np.where((city_positions == city).all(axis=1))[0][0] for city in ordered_cities]
 
-# -----------------------------
-# (7) Compute Total Distance
-# -----------------------------
-def compute_total_distance(route, graph):
-    total = 0
-    for i in range(len(route)):
-        a = route[i]
-        b = route[(i + 1) % len(route)]
-        total += graph[a][b] if b in graph[a] else 0
-    return total
+# Close the loop (return to start city)
+ordered_cities = np.vstack([ordered_cities, ordered_cities[0]])
+ordered_city_indices.append(ordered_city_indices[0])
 
-total_distance = compute_total_distance(final_route, graph)
+# Calculate total distance using the adjacency matrix
+total_distance = 0
+for i in range(len(ordered_city_indices) - 1):
+    city_a = ordered_city_indices[i]
+    city_b = ordered_city_indices[i + 1]
+    total_distance += city_distances[city_a][city_b]
 
+# Plot results
+plt.figure(figsize=(6, 6))
+plt.plot(ordered_cities[:, 0], ordered_cities[:, 1], 'b-o', label="Route Path")
+plt.scatter(city_positions[:, 0], city_positions[:, 1], c='r', marker='o', label="Cities")
 
-print("Final Route:", " > ".join(map(str, final_route + [final_route[0]])))
+# Label cities
+for i, (x, y) in enumerate(city_positions):
+    plt.text(x, y, f"{i+1}", fontsize=12, verticalalignment='bottom', horizontalalignment='right')
+
+# Display total distance on the plot (placed at the bottom)
+plt.text(min(city_positions[:, 0]), min(city_positions[:, 1]) - 0.5, 
+         f"Total Distance: {total_distance:.2f}", 
+         fontsize=12, color='blue', bbox=dict(facecolor='white', alpha=0.7))
+
+plt.xlabel("X-coordinate")
+plt.ylabel("Y-coordinate")
+plt.title("Optimized TSP Route Using SOM")
+plt.legend()
+plt.grid()
+plt.show()
+
 print("Total Distance:", total_distance)
+
